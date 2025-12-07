@@ -168,8 +168,8 @@ function populateMenu(restaurant) {
   additionalRow.classList.add("hidden");
   potMainSel.innerHTML = "";
 
-  /* ★★★ 這是新增的 4 行：一番鍋燒 → 自動顯示主食 ★★★ */
-  if (restaurant.includes("一番鍋燒")) {
+  /* ★★★ 這是新增的 4 行：三色麵疙瘩 → 自動顯示主食 ★★★ */
+  if (restaurant.includes("三色麵疙瘩")) {
     showMainOptions();
   }
 }
@@ -184,7 +184,7 @@ restaurantSel.addEventListener("change", () => {
   additionalRow.classList.add("hidden");
   potMainSel.innerHTML = "";
 
-  if (restaurantSel.value.includes("一番鍋燒")) {
+  if (restaurantSel.value.includes("三色麵疙瘩")) {
     showMainOptions();
   }
 });
@@ -193,7 +193,7 @@ menuItemSel.addEventListener("change", () => {
   const restaurant = restaurantSel.value;
   const additionalRow = el("additionalRow");
 
-  if (restaurant.includes("一番鍋燒")) {
+  if (restaurant.includes("三色麵疙瘩")) {
     showMainOptions();
   } else {
     additionalRow.classList.add("hidden");
@@ -205,16 +205,14 @@ function showMainOptions() {
   const label = additionalRow.querySelector("label");
   label.textContent = "主食";
   potMainSel.innerHTML = `
-    <option>白飯</option>
-    <option>蛋黃麵</option>
-    <option>冬粉</option>
-    <option>意麵</option>
-    <option>雞絲麵</option>
-    <option>蒸煮麵</option>
-    <option>烏龍</option>
-    <option>科學麵</option>
     <option>麵疙瘩</option>
-    <option>拉麵</option>
+    <option>意麵</option>
+    <option>雞絲</option>
+    <option>冬粉</option>
+    <option>泡飯</option>
+    <option>蒸煮麵</option>
+    <option>王子麵</option>
+    <option>烏龍麵</option>
   `;
   additionalRow.classList.remove("hidden");
 }
