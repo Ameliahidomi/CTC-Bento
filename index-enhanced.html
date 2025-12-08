@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>倉庫訂餐系統</title>
+
+<style>
+:root{--page-width:960px;--bg:#fff4ea}
+body{background:var(--bg);font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans TC','Microsoft JhengHei',sans-serif;color:#333;margin:0;display:flex;min-height:100vh;align-items:flex-start;justify-content:center;padding:40px 20px}
+.container{width:100%;max-width:var(--page-width);background:white;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.07);padding:24px;box-sizing:border-box}
+.hidden{display:none}
+
+/* ✅ 淡入動畫 */
+.page{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+h1{margin:0 0 12px;font-size:22px}
+.section-title{font-size:18px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+
+.row{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+label{min-width:84px}
+input[type=text],input[type=number]{padding:8px;border-radius:6px;border:1px solid #ddd}
+select{padding:8px;border-radius:6px;border:1px solid #ddd}
+
+button{padding:10px 14px;border-radius:10px;border:0;background:#ff8a4b;color:#fff;cursor:pointer}
+button.secondary{background:#ffb777;color:#000}
+.center{display:flex;justify-content:center;gap:12px;margin:16px 0}
+
+.menu-area{border:1px dashed #ffd3b8;padding:14px;border-radius:10px}
+.lunch-bg{background:#fff7f0}
+.tea-bg{background:#f0f7ff}
+
+/* ✅ 訂單樣式 */
+.order-item{position:relative;padding-right:80px;margin-bottom:12px;border-bottom:1px dashed #ddd;padding-bottom:8px}
+.order-item .delete-btn{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:#ff6b6b;color:#fff;border:0;border-radius:8px;padding:6px 10px
+}
+
+/* ✅ Loading */
+.loading-mask{position:fixed;inset:0;background:rgba(255,255,255,.75);display:flex;align-items:center;justify-content:center;z-index:9999}
+.loading-box{background:#fff;padding:24px 28px;border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;gap:12px;font-weight:700}
+.spinner{width:24px;height:24px;border:4px solid #ddd;border-top-color:#ff8a4b;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>倉庫訂餐系統</h1>
+
+<!-- ✅ 登入 -->
+<div id="page-login" class="page">
+  <div class="row">
+    <label>員工工號</label>
+    <input id="empId" placeholder="輸入 6 碼工號"/>
+  </div>
+  <div class="center">
+    <button id="btnLogin">登入</button>
+  </div>
+</div>
+
+<!-- ✅ 首頁 -->
+<div id="page-home" class="hidden page">
+  <p id="welcome"></p>
+  <div class="center">
+    <button id="toLunch">🍱 午餐</button>
+    <button id="toTea" class="secondary">☕ 下午茶</button>
+  </div>
+</div>
+
+<!-- ✅ 午餐 -->
+<div id="page-lunch" class="hidden page">
+  <div class="section-title">🍱 午餐點餐</div>
+
+  <div class="row">
+    <label>餐廳</label>
+    <select id="restaurant"></select>
+  </div>
+
+  <div class="menu-area lunch-bg">
+    <div class="row">
+      <label>餐點</label>
+      <select id="menuItem"></select>
+    </div>
+    <div class="row">
+      <label>數量</label>
+      <input id="qty" type="number" value="1" min="1"/>
+    </div>
+    <div class="row">
+      <label>備註</label>
+      <input id="note"/>
+    </div>
+    <div class="center">
+      <button id="addLunch">新增午餐訂單</button>
+      <button id="backFromLunch" class="secondary">返回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ 下午茶 -->
+<div id="page-tea" class="hidden page">
+  <div class="section-title">☕ 下午茶點餐</div>
+
+  <div class="row">
+    <label>餐廳</label>
+    <select id="teaRestaurant"></select>
+  </div>
+
+  <div class="menu-area tea-bg">
+    <div class="row">
+      <label>品項</label>
+      <select id="teaItem"></select>
+    </div>
+    <div class="row">
+      <label>數量</label>
+      <input id="teaQty" type="number" value="1" min="1"/>
+    </div>
+    <div class="row">
+      <label>備註</label>
+      <input id="teaNote"/>
+    </div>
+    <div class="center">
+      <button id="addTea">新增下午茶訂單</button>
+      <button id="backFromTea" class="secondary">返回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ 訂單 -->
+<div class="orders">
+  <h3>我的訂單</h3>
+  <div id="ordersList"></div>
+</div>
+
+</div>
+
+<!-- ✅ Loading -->
+<div id="loadingMask" class="loading-mask hidden">
+  <div class="loading-box">
+    <div class="spinner"></div> 資料載入中...
+  </div>
+</div>
+
+<script>
+const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycby0dblq0ll4Hr9uNJbwui9YjnK4xO2c0pARxtNiXG9YZFwj-bsaVVI5ITaklYaK-R3e/exec";
+let CURRENT_USER = null;
+let MENUS = {};
+let TEA_DATA = {};
+
+const el = id => document.getElementById(id);
+
+function showLoading(){el("loadingMask").classList.remove("hidden")}
+function hideLoading(){el("loadingMask").classList.add("hidden")}
+
+/* ✅ 登入 */
+el("btnLogin").addEventListener("click", async()=>{
+  const empId = el("empId").value.trim();
+  const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=getEmployees`);
+  const data = await res.json();
+  const found = data.find(e=>String(e.id)===empId);
+
+  if(!found){alert("工號錯誤");return;}
+  CURRENT_USER = found;
+  el("page-login").classList.add("hidden");
+  el("page-home").classList.remove("hidden");
+  el("welcome").textContent = `歡迎 ${found.name}`;
+  renderOrders();
+});
+
+/* ✅ 導覽 */
+el("toLunch").addEventListener("click", async()=>{
+  showLoading();
+  try{
+    el("page-home").classList.add("hidden");
+    el("page-lunch").classList.remove("hidden");
+    await loadMenus();
+  }finally{ hideLoading(); }
+});
+
+el("toTea").addEventListener("click", async()=>{
+  showLoading();
+  try{
+    el("page-home").classList.add("hidden");
+    el("page-tea").classList.remove("hidden");
+    await loadTeaMenus();
+  }finally{ hideLoading(); }
+});
+
+el("backFromLunch").onclick=()=>{
+  el("page-lunch").classList.add("hidden");
+  el("page-home").classList.remove("hidden");
+};
+el("backFromTea").onclick=()=>{
+  el("page-tea").classList.add("hidden");
+  el("page-home").classList.remove("hidden");
+};
+
+/* ✅ 載入午餐 */
+async function loadMenus(){
+  const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=getMenus`);
+  MENUS = await res.json();
+  const sel = el("restaurant");
+  sel.innerHTML="";
+  Object.keys(MENUS).forEach(r=>{
+    const o=document.createElement("option");
+    o.value=r;o.textContent=r;sel.appendChild(o);
+  });
+  populateMenu(sel.value);
+}
+
+/* ✅ 午餐顯示分類 */
+function populateMenu(r){
+  const sel = el("menuItem");
+  sel.innerHTML="";
+  let lastCat=null;
+  (MENUS[r]||[]).forEach(it=>{
+    if(it.cat!==lastCat){
+      const h=document.createElement("option");
+      h.textContent=it.cat;h.disabled=true;
+      sel.appendChild(h);
+      lastCat=it.cat;
+    }
+    const o=document.createElement("option");
+    o.value=JSON.stringify(it);
+    o.textContent=`${it.name} — ${it.price}元`;
+    sel.appendChild(o);
+  });
+}
+
+/* ✅ 下午茶 */
+async function loadTeaMenus(){
+  const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=getTeaMenus`);
+  TEA_DATA = await res.json();
+  const sel = el("teaRestaurant");
+  sel.innerHTML="";
+  Object.keys(TEA_DATA).forEach(r=>{
+    const o=document.createElement("option");
+    o.value=r;o.textContent=r;sel.appendChild(o);
+  });
+  populateTeaMenu(sel.value);
+}
+
+function populateTeaMenu(r){
+  const sel=el("teaItem");
+  sel.innerHTML="";
+  let lastCat=null;
+  (TEA_DATA[r]||[]).forEach(it=>{
+    if(it.cat!==lastCat){
+      const h=document.createElement("option");
+      h.textContent=it.cat;h.disabled=true;
+      sel.appendChild(h);
+      lastCat=it.cat;
+    }
+    const o=document.createElement("option");
+    o.value=JSON.stringify(it);
+    o.textContent=`${it.name} — ${it.price}元`;
+    sel.appendChild(o);
+  });
+}
+
+/* ✅ 送單 */
+el("addLunch").onclick=async()=>submit("lunch");
+el("addTea").onclick=async()=>submit("tea");
+
+async function submit(type){
+  const date=new Date().toISOString().slice(0,10);
+  const item = type==="lunch"?JSON.parse(el("menuItem").value):JSON.parse(el("teaItem").value);
+  const qty = type==="lunch"?el("qty").value:el("teaQty").value;
+  const note= type==="lunch"?el("note").value:el("teaNote").value;
+
+  const p=new URLSearchParams({
+    date, employee:CURRENT_USER.name,
+    restaurant:type==="lunch"?el("restaurant").value:"下午茶",
+    item:item.name, price:item.price,
+    spice:"", qty, note, potMain:""
+  });
+
+  await fetch(GOOGLE_WEBAPP_URL,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:p});
+  alert("訂單已送出");
+  renderOrders();
+}
+
+/* ✅ 訂單清單 */
+async function renderOrders(){
+  const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=getOrders&employee=${encodeURIComponent(CURRENT_USER.name)}`);
+  const data = await res.json();
+  const box = el("ordersList");
+  box.innerHTML="";
+  data.forEach(o=>{
+    const d=document.createElement("div");
+    d.className="order-item";
+    d.innerHTML=`<b>${o.restaurant} - ${o.item}</b><br>數量:${o.qty} | 價格:${o.price}
+    <button class="delete-btn" data-id="${o.id}">刪除</button>`;
+    box.appendChild(d);
+  });
+}
+</script>
+</body>
+</html>
