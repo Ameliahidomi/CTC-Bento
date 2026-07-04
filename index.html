@@ -206,8 +206,8 @@ const specialRestaurantImages = {
     "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/dsorder01.jpg",
     "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/dsorder02.jpg"
   ],
-  "江鳥紅": [
-     "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/jiangniaohong.jpg"
+  "便當爺爺": [
+     "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/bento-grandpa01.jpg"
   ]
 };
 
@@ -373,14 +373,45 @@ function handleDynamicUI() {
     if (match) targetConfig = configData;
   }
 
-  // 如果找到對應的欄位設定，將其渲染至畫面上
+// 如果找到對應的欄位設定，將其渲染至畫面上
   if (targetConfig) {
     el("additionalLabel").textContent = targetConfig.label;
+    
     if (targetConfig.isMulti) { 
       container.innerHTML = targetConfig.options.map(o => `<label style="margin-right:8px"><input type="checkbox" name="customOption" value="${o}"> ${o}</label>`).join(''); 
     } else { 
-      container.innerHTML = `<select id="potMain">${targetConfig.options.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`; 
-    }
+      // 判斷是否為囍廣港式燒臘且包含雙拼便當（主食五選二）
+      if (restaurant.includes("囍廣港式燒臘") && itemObj.name.includes("雙拼便當")) {
+        const optionsHtml = targetConfig.options.map(o => `<option value="${o}">${o}</option>`).join('');
+        
+        // 預先建立好兩個下拉選單的容器，並讓第二個預設隱藏
+        container.innerHTML = `
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select id="potMain1">
+              <option value="" disabled selected>請選擇主食一</option>
+              ${optionsHtml}
+            </select>
+            <select id="potMain2" class="hidden">
+              <option value="" disabled selected>請選擇主食二</option>
+              ${optionsHtml}
+            </select>
+          </div>
+        `;
+
+        // 監聽第一個選單，當有選擇時，自動秀出第二個選單
+        const select1 = el("potMain1");
+        const select2 = el("potMain2");
+        select1.onchange = () => {
+          if (select1.value) {
+            select2.classList.remove("hidden");
+          }
+        };
+      } else {
+        // 其他餐廳維持原本的單選邏輯
+        container.innerHTML = `<select id="potMain">${targetConfig.options.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`; 
+      }
+    } // <-- 這裡原本少了一個大括號閉合原本的 else 區塊！
+    
     el("additionalRow").classList.remove("hidden");
     if (targetConfig.hasFries) el("friesRow").classList.remove("hidden");
   }
@@ -417,8 +448,22 @@ el("addLunch").onclick = async () => {
 
   el("addLunch").disabled = true;
   const checkboxes = document.querySelectorAll('input[name="customOption"]:checked');
-  let potMainVal = checkboxes.length ? Array.from(checkboxes).map(cb => cb.value).join(', ') : (el("potMain") ? el("potMain").value : "");
-  
+let potMainVal = "";
+  if (checkboxes.length) {
+    potMainVal = Array.from(checkboxes).map(cb => cb.value).join(', ');
+  } else if (el("potMain1") && el("potMain2")) {
+    // 針對雙拼便當，將兩個主食的值用逗號組合起來
+    const m1 = el("potMain1").value;
+    const m2 = el("potMain2").value;
+    if (!m1 || !m2) {
+      alert("請務必選擇兩種主食！");
+      el("addLunch").disabled = false;
+      return;
+    }
+    potMainVal = `${m1} + ${m2}`;
+  } else {
+    potMainVal = el("potMain") ? el("potMain").value : "";
+  }  
   await fetch(GOOGLE_WEBAPP_URL, { method: "POST", body: new URLSearchParams({
     action: "add", date: new Date().toISOString().split('T')[0], employee: CURRENT_USER.name, 
     restaurant: restaurant, category: itemObj.cat, item: itemObj.name, 
