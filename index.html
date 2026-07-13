@@ -33,10 +33,17 @@ button.secondary{background:#ffb777;color:#000}
 .center{display:flex;justify-content:center;gap:12px;margin:16px 0}
 .menu-area{ border:1px dashed #ffd3b8; padding:12px;border-radius:8px;background:#fff7f0 }
 .hidden{display:none}
-.order-item{position:relative;padding:12px;padding-right:80px;border-bottom:1px solid #eee;margin-bottom:4px}
-.order-item .delete-btn{
+.order-item{position:relative;padding:12px;padding-right:160px;border-bottom:1px solid #eee;margin-bottom:4px}
+.order-item .btn-group{
   position:absolute;right:10px;top:50%;
   transform:translateY(-50%);
+  display:flex;gap:6px;
+}
+.order-item .edit-btn{
+  background:#4dabf7;color:#fff;border:0;
+  border-radius:6px;padding:6px 12px;cursor:pointer
+}
+.order-item .delete-btn{
   background:#ff6b6b;color:#fff;border:0;
   border-radius:6px;padding:6px 12px;cursor:pointer
 }
@@ -162,20 +169,23 @@ button:hover {
       <div class="row"><label>🧂 調味</label><select id="spice"><option>不加</option><option>微辣</option><option>小辣</option><option>中辣</option><option>加醋</option></select></div>
       <div class="row"><label>🔢 數量</label><input id="qty" type="number" min="1" value="1" style="width:80px"></div>
       <div class="row"><label>📝 備註</label><input id="note" placeholder="例: 少醬、不要蔥...."></div>
-      <div class="center"><button id="addLunch">➕ 新增訂單</button><button id="backFromLunch" class="secondary">⬅️ 回上一頁</button></div>
+      <div class="center">
+        <button id="addLunch">➕ 新增訂單</button>
+        <button id="cancelEdit" class="secondary hidden">❌ 取消修改</button>
+        <button id="backFromLunch" class="secondary">⬅️ 回上一頁</button>
+      </div>
     </div>
   </div>
   <div class="orders">
     <h3>📋我的訂單（即時顯示）</h3>
     <div id="ordersList"></div>
-    <p class="note">僅顯示你本人的訂單，可隨時刪除。</p>
+    <p class="note">僅顯示你本人的訂單，可隨時修改或刪除。</p>
   </div>
 </div>
 
 <script>
 const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyznRRA7TJ28X9TtMU_0r2qhXUemySqgICb6kI-Jd2YA0zzhJxEK6OQr1JOkyL7YtXK/exec";
 
-// 將一般餐廳與多重分類的圓DoDo整合
 const potMainConfigs = {
   "老江紅茶": { categoryKey: "套餐組合", options: ["紅茶冰-$81", "冷泡茶-$81", "小杯奶茶-$89", "中杯奶茶-$106"], label: "🥤 套餐飲料", hasFries: true },
   "老李小火鍋": { categoryKey: "鍋物湯底", options: ["白飯", "意麵", "科學麵", "冬粉", "蒸煮麵", "王子麵"], label: "🍜 主食選擇" },
@@ -192,15 +202,13 @@ const potMainConfigs = {
   "江鳥紅": { categoryKey: "鍋燒系列", options: ["冬粉", "飯", "意麵+$10", "拉麵+$10"], label: "🍜 主食選擇" },
   "三色麵疙瘩": { categoryKey: "湯底", options: ["麵疙瘩", "意麵", "雞絲", "冬粉", "泡飯", "蒸煮麵", "王子麵"], label: "🍜 主食選擇" },
   "呷飽飽創意鍋燒": { categoryKey: "鍋燒湯底", options: ["意麵", "雞絲", "烏龍", "冬粉", "飯", "蒸煮麵", "蛋黃麵"], label: "🍜 主食選擇" },
-  
-  // 將某餐廳合併為單一Key，並改用陣列結構支援多種分類
+  "蘑菇咖哩": { categoryKey: "咖哩飯", options: ["黑咖哩(辣)", "+起司$15", "甜咖哩(不辣)"], label: "🍛 醬料選擇" },
   "囍廣港式燒臘": [
     { itemKey: "雙拼便當", options: ["燒鴨", "油雞", "香腸", "叉燒", "脆皮豬"], label: "🍜主食五選二" },
     { categoryKey: "港式蛋炒飯", options: ["不加", "豬肉", "蝦仁", "牛肉"], label: "🍜 加料+20" }
   ]
 };
 
-// 多張菜單配置
 const specialRestaurantImages = {
   "囍廣港式燒臘": [
     "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/dsorder01.jpg",
@@ -212,6 +220,9 @@ const specialRestaurantImages = {
 };
 
 let CURRENT_USER = null; let MENUS = {}; let lastShownRestaurant = ""; 
+let EDIT_ORDER_ID = null; 
+let MY_ORDERS_DATA = []; 
+
 const el = id => document.getElementById(id);
 
 el("closeNotice").onclick = () => { el("noticeModal").style.display = "none"; el("page-login").classList.remove("hidden"); };
@@ -285,14 +296,10 @@ function handleDynamicUI() {
   el("additionalRow").classList.add("hidden"); 
   el("friesRow").classList.add("hidden");
 
-  // 💡 修正：切換餐廳時，若有多張菜單，全部打包在同一個新分頁中，可往下捲動瀏覽
-  if (restaurant !== lastShownRestaurant) {
+  if (restaurant !== lastShownRestaurant && !EDIT_ORDER_ID) {
     const specialImages = specialRestaurantImages[Object.keys(specialRestaurantImages).find(k => restaurant.includes(k))];
     if (specialImages && specialImages.length > 0) {
-      // 串接所有圖片標籤
       const imgTags = specialImages.map(url => `<img src="${url}" style="max-width:100%; display:block; margin:0 auto 20px auto; box-shadow:0 4px 10px rgba(0,0,0,0.15); border-radius:8px;">`).join('');
-      
-      // 組合新分頁 HTML
       const pageContent = `
         <html>
         <head>
@@ -314,7 +321,6 @@ function handleDynamicUI() {
         </html>
       `;
       
-      // 開啟單一空白分頁並寫入 HTML
       const menuWindow = window.open();
       if (menuWindow) {
         menuWindow.document.write(pageContent);
@@ -324,13 +330,12 @@ function handleDynamicUI() {
     lastShownRestaurant = restaurant;
   }
 
-  // 萬客臨與豆坊：切換為手動自行輸入
   if (restaurant.includes("萬客臨彩色麵疙瘩") || restaurant.includes("豆坊")) {
     el("menuItem").classList.add("hidden");       
     el("customItem").classList.remove("hidden");    
     el("priceRow").classList.remove("hidden");      
     
-    if (restaurant.includes("豆坊")) {
+    if (restaurant.includes("豆坊") && !EDIT_ORDER_ID) {
       const config = potMainConfigs["豆坊"];
       if (config && config.img) {
         window.open(config.img, '_blank');
@@ -351,15 +356,13 @@ function handleDynamicUI() {
 
   if (!configData) return;
 
-  // 其他一般配圖餐廳，同樣改為新分頁開啟
-  if (configData.img && !Array.isArray(configData)) {
+  if (configData.img && !Array.isArray(configData) && !EDIT_ORDER_ID) {
     window.open(configData.img, '_blank');
   }
 
   const cleanCat = (itemObj.cat || "").replace(/\s+/g, '');
   let targetConfig = null;
 
-// 如果設定是陣列，支援透過 itemKey (餐點名) 或 categoryKey (分類) 進行精準/模糊篩選
   if (Array.isArray(configData)) {
     targetConfig = configData.find(cfg => {
       if (cfg.itemKey && itemObj.name.includes(cfg.itemKey)) return true;
@@ -367,24 +370,20 @@ function handleDynamicUI() {
       return false;
     });
   } else {
-    // 一般單一設定的餐廳
     const match = (configData.categoryKey && cleanCat.includes(configData.categoryKey)) || 
                   (configData.itemKey && itemObj.name.includes(configData.itemKey));
     if (match) targetConfig = configData;
   }
 
-// 如果找到對應的欄位設定，將其渲染至畫面上
   if (targetConfig) {
     el("additionalLabel").textContent = targetConfig.label;
     
     if (targetConfig.isMulti) { 
       container.innerHTML = targetConfig.options.map(o => `<label style="margin-right:8px"><input type="checkbox" name="customOption" value="${o}"> ${o}</label>`).join(''); 
     } else { 
-      // 判斷是否為囍廣港式燒臘且包含雙拼便當（主食五選二）
       if (restaurant.includes("囍廣港式燒臘") && itemObj.name.includes("雙拼便當")) {
         const optionsHtml = targetConfig.options.map(o => `<option value="${o}">${o}</option>`).join('');
         
-        // 預先建立好兩個下拉選單的容器，並讓第二個預設隱藏
         container.innerHTML = `
           <div style="display: flex; gap: 8px; align-items: center;">
             <select id="potMain1">
@@ -398,7 +397,6 @@ function handleDynamicUI() {
           </div>
         `;
 
-        // 監聽第一個選單，當有選擇時，自動秀出第二個選單
         const select1 = el("potMain1");
         const select2 = el("potMain2");
         select1.onchange = () => {
@@ -407,10 +405,9 @@ function handleDynamicUI() {
           }
         };
       } else {
-        // 其他餐廳維持原本的單選邏輯
         container.innerHTML = `<select id="potMain">${targetConfig.options.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`; 
       }
-    } // <-- 這裡原本少了一個大括號閉合原本的 else 區塊！
+    }
     
     el("additionalRow").classList.remove("hidden");
     if (targetConfig.hasFries) el("friesRow").classList.remove("hidden");
@@ -418,6 +415,10 @@ function handleDynamicUI() {
 }
 
 function resetFormInputs() {
+  EDIT_ORDER_ID = null;
+  el("addLunch").textContent = "➕ 新增訂單";
+  el("cancelEdit").classList.add("hidden");
+  
   el("customItem").value = "";
   el("customPrice").value = "";
   el("qty").value = "1";
@@ -425,6 +426,11 @@ function resetFormInputs() {
   el("spice").selectedIndex = 0;
   el("addFries").value = "";
 }
+
+el("cancelEdit").onclick = () => {
+  resetFormInputs();
+  handleDynamicUI();
+};
 
 el("addLunch").onclick = async () => {
   const restaurant = el("restaurant").value;
@@ -448,11 +454,10 @@ el("addLunch").onclick = async () => {
 
   el("addLunch").disabled = true;
   const checkboxes = document.querySelectorAll('input[name="customOption"]:checked');
-let potMainVal = "";
+  let potMainVal = "";
   if (checkboxes.length) {
     potMainVal = Array.from(checkboxes).map(cb => cb.value).join(', ');
   } else if (el("potMain1") && el("potMain2")) {
-    // 針對雙拼便當，將兩個主食的值用逗號組合起來
     const m1 = el("potMain1").value;
     const m2 = el("potMain2").value;
     if (!m1 || !m2) {
@@ -464,21 +469,55 @@ let potMainVal = "";
   } else {
     potMainVal = el("potMain") ? el("potMain").value : "";
   }  
-  await fetch(GOOGLE_WEBAPP_URL, { method: "POST", body: new URLSearchParams({
-    action: "add", date: new Date().toISOString().split('T')[0], employee: CURRENT_USER.name, 
-    restaurant: restaurant, category: itemObj.cat, item: itemObj.name, 
-    price: itemObj.price, spice: el("spice").value, qty: el("qty").value, note: el("note").value, potMain: potMainVal
-  })});
   
-  alert("訂單已新增"); 
-  resetFormInputs();
-  renderOrders(); 
-  el("addLunch").disabled = false;
+  const isEdit = EDIT_ORDER_ID !== null;
+
+  try {
+    // 💡 解決重複新增的關鍵：若是修改模式，先悄悄呼叫 "delete" 把原本舊的那筆刪掉
+    if (isEdit) {
+      await fetch(GOOGLE_WEBAPP_URL, { 
+        method: "POST", 
+        body: new URLSearchParams({
+          action: "delete", 
+          id: EDIT_ORDER_ID, 
+          employee: CURRENT_USER.name
+        }) 
+      });
+    }
+
+    // 接著統一發送 "add" 新增請求將新內容上傳
+    await fetch(GOOGLE_WEBAPP_URL, { 
+      method: "POST", 
+      body: new URLSearchParams({
+        action: "add", 
+        date: new Date().toISOString().split('T')[0], 
+        employee: CURRENT_USER.name, 
+        restaurant: restaurant, 
+        category: itemObj.cat, 
+        item: itemObj.name, 
+        price: itemObj.price, 
+        spice: el("spice").value, 
+        qty: el("qty").value, 
+        note: el("note").value, 
+        potMain: potMainVal
+      })
+    });
+    
+    alert(isEdit ? "訂單已更新完成！" : "訂單已新增"); 
+    resetFormInputs();
+    renderOrders(); 
+  } catch (err) {
+    alert("操作失敗，請稍後再試！");
+  } finally {
+    el("addLunch").disabled = false;
+  }
 };
 
 async function renderOrders() {
   const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=getOrders&employee=${encodeURIComponent(CURRENT_USER.name)}`);
   const data = await res.json();
+  MY_ORDERS_DATA = data; 
+  
   el("ordersList").innerHTML = data.map((o, idx) => {
     let formattedDate = "";
     if (o.date) {
@@ -504,14 +543,85 @@ async function renderOrders() {
         ${o.potMain ? ' | 選項: ' + o.potMain : ''}
       </div>
       ${o.note ? `<div class="small" style="color:#888;">備註: ${o.note}</div>` : ''}
-      <button class="delete-btn" onclick="deleteOrder('${o.id}')">🗑️ 刪除</button>
+      <div class="btn-group">
+        <button class="edit-btn" onclick="startEditOrder('${o.id}')">✏️ 修改</button>
+        <button class="delete-btn" onclick="deleteOrder('${o.id}')">🗑️ 刪除</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+async function startEditOrder(id) {
+  const order = MY_ORDERS_DATA.find(o => String(o.id) === String(id));
+  if (!order) return;
+
+  el("page-home").classList.add("hidden"); 
+  el("page-lunch").classList.remove("hidden");
+  
+  EDIT_ORDER_ID = id;
+  el("addLunch").textContent = "💾 儲存修改";
+  el("cancelEdit").classList.remove("hidden");
+
+  el("restaurant").value = order.restaurant;
+  lastShownRestaurant = order.restaurant; 
+  
+  if (!MENUS[order.restaurant]) {
+    await loadMenus("lunch");
+    el("restaurant").value = order.restaurant;
+  }
+  
+  populateMenu(order.restaurant);
+
+  const isCustomInput = order.restaurant.includes("萬客臨彩色麵疙瘩") || order.restaurant.includes("豆坊");
+  if (isCustomInput) {
+    el("customItem").value = order.item;
+    el("customPrice").value = order.price;
+  } else {
+    const options = Array.from(el("menuItem").options);
+    const targetOpt = options.find(opt => {
+      if (!opt.value || opt.value.startsWith("🔄")) return false;
+      try {
+        const json = JSON.parse(opt.value);
+        return json.name === order.item;
+      } catch(e) { return false; }
+    });
+    if (targetOpt) {
+      el("menuItem").value = targetOpt.value;
+    }
+  }
+
+  handleDynamicUI();
+
+  if (order.potMain) {
+    const checkboxes = document.querySelectorAll('input[name="customOption"]');
+    if (checkboxes.length > 0) {
+      const selectedVals = order.potMain.split(', ').map(v => v.trim());
+      checkboxes.forEach(cb => {
+        if (selectedVals.includes(cb.value)) cb.checked = true;
+      });
+    } else if (el("potMain1") && el("potMain2")) {
+      const parts = order.potMain.split(' + ');
+      if (parts.length === 2) {
+        el("potMain1").value = parts[0].trim();
+        el("potMain2").value = parts[1].trim();
+        el("potMain2").classList.remove("hidden");
+      }
+    } else if (el("potMain")) {
+      el("potMain").value = order.potMain;
+    }
+  }
+
+  el("spice").value = order.spice || "不加";
+  el("qty").value = order.qty || "1";
+  el("note").value = order.note || "";
+  
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function deleteOrder(id) {
   if (!confirm("確定刪除？")) return;
   await fetch(GOOGLE_WEBAPP_URL, { method: "POST", body: new URLSearchParams({action:"delete", id, employee: CURRENT_USER.name}) });
+  if (EDIT_ORDER_ID === id) resetFormInputs();
   renderOrders();
 }
 
