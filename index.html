@@ -203,19 +203,18 @@ const potMainConfigs = {
   "三色麵疙瘩": { categoryKey: "湯底", options: ["麵疙瘩", "意麵", "雞絲", "冬粉", "泡飯", "蒸煮麵", "王子麵"], label: "🍜 主食選擇" },
   "呷飽飽創意鍋燒": { categoryKey: "鍋燒湯底", options: ["意麵", "雞絲", "烏龍", "冬粉", "飯", "蒸煮麵", "蛋黃麵"], label: "🍜 主食選擇" },
   "蘑菇咖哩": { categoryKey: "咖哩飯", options: ["黑咖哩(辣)", "+起司$15", "甜咖哩(不辣)"], label: "🍛 醬料選擇" },
-  "囍廣港式燒臘": [
-    { itemKey: "雙拼便當", options: ["燒鴨", "油雞", "香腸", "叉燒", "脆皮豬"], label: "🍜主食五選二" },
-    { categoryKey: "港式蛋炒飯", options: ["不加", "豬肉", "蝦仁", "牛肉"], label: "🍜 加料+20" }
+  "洪師傅便當": [
+    { itemKey: "綜合便當", options: ["豆乳雞", "魚塊", "油雞", "香腸"], label: "🍜主食四選二" },
   ]
 };
 
 const specialRestaurantImages = {
-  "囍廣港式燒臘": [
-    "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/dsorder01.jpg",
-    "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/dsorder02.jpg"
+  "日出鎮東": [
+    "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/Zhendong01.jpg",
+    "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/Zhendong02.jpg"
   ],
-  "便當爺爺": [
-     "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/bento-grandpa01.jpg"
+  "億品味雞肉飯": [
+     "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/Ipenua.jpg"
   ]
 };
 
@@ -330,7 +329,7 @@ function handleDynamicUI() {
     lastShownRestaurant = restaurant;
   }
 
-  if (restaurant.includes("萬客臨彩色麵疙瘩") || restaurant.includes("豆坊")) {
+  if (restaurant.includes("日出鎮東") || restaurant.includes("豆坊")) {
     el("menuItem").classList.add("hidden");       
     el("customItem").classList.remove("hidden");    
     el("priceRow").classList.remove("hidden");      
@@ -381,7 +380,7 @@ function handleDynamicUI() {
     if (targetConfig.isMulti) { 
       container.innerHTML = targetConfig.options.map(o => `<label style="margin-right:8px"><input type="checkbox" name="customOption" value="${o}"> ${o}</label>`).join(''); 
     } else { 
-      if (restaurant.includes("囍廣港式燒臘") && itemObj.name.includes("雙拼便當")) {
+      if (restaurant.includes("洪師傅便當") && itemObj.name.includes("綜合便當")) {
         const optionsHtml = targetConfig.options.map(o => `<option value="${o}">${o}</option>`).join('');
         
         container.innerHTML = `
@@ -437,7 +436,7 @@ el("addLunch").onclick = async () => {
   if(restaurant.startsWith("🔄")) return; 
   
   let itemObj = { cat: "手動輸入", name: "", price: 0 };
-  const isCustomInput = restaurant.includes("萬客臨彩色麵疙瘩") || restaurant.includes("豆坊");
+  const isCustomInput = restaurant.includes("日出鎮東") || restaurant.includes("豆坊");
   
   if (isCustomInput) {
     const customName = el("customItem").value.trim();
