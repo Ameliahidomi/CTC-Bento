@@ -202,6 +202,16 @@ const potMainConfigs = {
   "江鳥紅": { categoryKey: "鍋燒系列", options: ["冬粉", "飯", "意麵+$10", "拉麵+$10"], label: "🍜 主食選擇" },
   "朵栗兒涼麵": { img: "https://raw.githubusercontent.com/Ameliahidomi/ctc_bento/main/dolier.jpg" },
   "三色麵疙瘩": { categoryKey: "湯底", options: ["麵疙瘩", "意麵", "雞絲", "冬粉", "泡飯", "蒸煮麵", "王子麵"], label: "🍜 主食選擇" },
+  "越氏輕食坊": { 
+    img: "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/sontent.jpg",
+    options: [
+      { itemKey: "綜合乾拌米線", options: ["雞絲", "鮮蝦", "烤肉", "叉燒豬"], label: "🍜 口味四選二", selectCount: 2 },
+      { itemKey: "綜合乾拌涼粉", options: ["雞絲", "鮮蝦", "烤肉", "叉燒豬"], label: "🍜 口味四選二", selectCount: 2 },
+      { itemKey: "綜合蠔油米線", options: ["雞絲", "烤肉", "叉燒豬"], label: "🍜 口味三選二", selectCount: 2 },
+      { itemKey: "綜合蠔油涼粉", options: ["雞絲", "烤肉", "叉燒豬"], label: "🍜 口味三選二", selectCount: 2 },
+      { itemKey: "綜合蠔油雞蛋麵", options: ["雞絲", "烤肉", "叉燒豬"], label: "🍜 口味三選二", selectCount: 2 },
+    ]
+  },
   "呷飽飽創意鍋燒": { categoryKey: "鍋燒湯底", options: ["意麵", "雞絲", "烏龍", "冬粉", "飯", "蒸煮麵", "蛋黃麵"], label: "🍜 主食選擇" },
   "御膳坊間": { categoryKey: "風味鍋燒", options: ["意麵", "雞絲", "烏龍", "冬粉", "泡麵", "白飯"], label: "🍜 主食選擇" },
   "蘑菇咖哩": { categoryKey: "咖哩飯", options: ["黑咖哩(辣)", "+起司$15", "甜咖哩(不辣)"], label: "🍛 醬料選擇" },
@@ -211,9 +221,8 @@ const potMainConfigs = {
 };
 
 const specialRestaurantImages = {
-  "日出鎮東": [
-    "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/Zhendong01.jpg",
-    "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/Zhendong02.jpg"
+  "月宮寶盒烤肉飯": [
+    "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/uuezh.jpg"
   ],
   "灶蹄蹤堂": [
      "https://raw.githubusercontent.com/Ameliahidomi/ctcbento/main/zaotizongtang.jpg"
@@ -266,39 +275,28 @@ async function loadMenus(mode) {
     });
     
     if (sel.options.length > 0) {
-      populateMenu(sel.value);
+      triggerRestaurantChange(sel.value); // 確保初次載入時觸發餐廳切換邏輯
     }
   } catch (e) {
     sel.innerHTML = "<option disabled>❌ 載入失敗，請重新切換試試</option>";
   }
 }
 
-function populateMenu(restaurant) {
-  const sel = el("menuItem"); sel.innerHTML = "";
-  const items = MENUS[restaurant] || [];
-  let lastCat = null;
-  items.forEach(it => {
-    if (it.cat !== lastCat) {
-      const catOpt = document.createElement("option"); catOpt.disabled = true;
-      catOpt.textContent = `-${it.cat}-`; catOpt.style.fontWeight = "bold"; sel.appendChild(catOpt); lastCat = it.cat;
-    }
-    const option = document.createElement("option"); option.value = JSON.stringify(it);
-    option.textContent = `${it.name} — ${it.price}元`; sel.appendChild(option);
-  });
-  handleDynamicUI();
-}
-
-function handleDynamicUI() {
-  const restaurant = el("restaurant").value; 
-  const itemVal = el("menuItem").value;
-  const container = el("potMainContainer");
+function triggerRestaurantChange(restaurant) {
+  populateMenu(restaurant);
   
-  container.innerHTML = ""; 
-  el("additionalRow").classList.add("hidden"); 
-  el("friesRow").classList.add("hidden");
-
+  // 檢查是否有特別圖片需要跳出視窗（只在切換餐廳時觸發一次）
   if (restaurant !== lastShownRestaurant && !EDIT_ORDER_ID) {
-    const specialImages = specialRestaurantImages[Object.keys(specialRestaurantImages).find(k => restaurant.includes(k))];
+    const specialKey = Object.keys(specialRestaurantImages).find(k => restaurant.includes(k));
+    let specialImages = specialKey ? specialRestaurantImages[specialKey] : null;
+    
+    const configKey = Object.keys(potMainConfigs).find(k => restaurant.includes(k));
+    let configData = configKey ? potMainConfigs[configKey] : null;
+    
+    if (!specialImages && configData && configData.img) {
+      specialImages = [configData.img];
+    }
+
     if (specialImages && specialImages.length > 0) {
       const imgTags = specialImages.map(url => `<img src="${url}" style="max-width:100%; display:block; margin:0 auto 20px auto; box-shadow:0 4px 10px rgba(0,0,0,0.15); border-radius:8px;">`).join('');
       const pageContent = `
@@ -330,18 +328,36 @@ function handleDynamicUI() {
     }
     lastShownRestaurant = restaurant;
   }
+}
 
-  if (restaurant.includes("日出鎮東") || restaurant.includes("豆坊")) {
+function populateMenu(restaurant) {
+  const sel = el("menuItem"); sel.innerHTML = "";
+  const items = MENUS[restaurant] || [];
+  let lastCat = null;
+  items.forEach(it => {
+    if (it.cat !== lastCat) {
+      const catOpt = document.createElement("option"); catOpt.disabled = true;
+      catOpt.textContent = `-${it.cat}-`; catOpt.style.fontWeight = "bold"; sel.appendChild(catOpt); lastCat = it.cat;
+    }
+    const option = document.createElement("option"); option.value = JSON.stringify(it);
+    option.textContent = `${it.name} — ${it.price}元`; sel.appendChild(option);
+  });
+  handleDynamicUI();
+}
+
+function handleDynamicUI() {
+  const restaurant = el("restaurant").value; 
+  const itemVal = el("menuItem").value;
+  const container = el("potMainContainer");
+  
+  container.innerHTML = ""; 
+  el("additionalRow").classList.add("hidden"); 
+  el("friesRow").classList.add("hidden");
+
+  if (restaurant.includes("月宮寶盒烤肉飯") || restaurant.includes("豆坊")) {
     el("menuItem").classList.add("hidden");       
     el("customItem").classList.remove("hidden");    
     el("priceRow").classList.remove("hidden");      
-    
-    if (restaurant.includes("豆坊") && !EDIT_ORDER_ID) {
-      const config = potMainConfigs["豆坊"];
-      if (config && config.img) {
-        window.open(config.img, '_blank');
-      }
-    }
     return; 
   } else {
     el("menuItem").classList.remove("hidden");
@@ -357,15 +373,17 @@ function handleDynamicUI() {
 
   if (!configData) return;
 
-  if (configData.img && !Array.isArray(configData) && !EDIT_ORDER_ID) {
-    window.open(configData.img, '_blank');
-  }
-
   const cleanCat = (itemObj.cat || "").replace(/\s+/g, '');
   let targetConfig = null;
 
   if (Array.isArray(configData)) {
     targetConfig = configData.find(cfg => {
+      if (cfg.itemKey && itemObj.name.includes(cfg.itemKey)) return true;
+      if (cfg.categoryKey && cleanCat.includes(cfg.categoryKey)) return true;
+      return false;
+    });
+  } else if (configData.options && Array.isArray(configData.options)) {
+    targetConfig = configData.options.find(cfg => {
       if (cfg.itemKey && itemObj.name.includes(cfg.itemKey)) return true;
       if (cfg.categoryKey && cleanCat.includes(cfg.categoryKey)) return true;
       return false;
@@ -382,17 +400,19 @@ function handleDynamicUI() {
     if (targetConfig.isMulti) { 
       container.innerHTML = targetConfig.options.map(o => `<label style="margin-right:8px"><input type="checkbox" name="customOption" value="${o}"> ${o}</label>`).join(''); 
     } else { 
-      if (restaurant.includes("洪師傅便當") && itemObj.name.includes("綜合便當")) {
+      if ((restaurant.includes("洪師傅便當") && itemObj.name.includes("綜合便當")) || 
+          (restaurant.includes("越氏輕食坊") && targetConfig.selectCount === 2)) {
+        
         const optionsHtml = targetConfig.options.map(o => `<option value="${o}">${o}</option>`).join('');
         
         container.innerHTML = `
-          <div style="display: flex; gap: 8px; align-items: center;">
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <select id="potMain1">
-              <option value="" disabled selected>請選擇主食一</option>
+              <option value="" disabled selected>請選擇口味一</option>
               ${optionsHtml}
             </select>
             <select id="potMain2" class="hidden">
-              <option value="" disabled selected>請選擇主食二</option>
+              <option value="" disabled selected>請選擇口味二</option>
               ${optionsHtml}
             </select>
           </div>
@@ -400,6 +420,7 @@ function handleDynamicUI() {
 
         const select1 = el("potMain1");
         const select2 = el("potMain2");
+        
         select1.onchange = () => {
           if (select1.value) {
             select2.classList.remove("hidden");
@@ -438,7 +459,7 @@ el("addLunch").onclick = async () => {
   if(restaurant.startsWith("🔄")) return; 
   
   let itemObj = { cat: "手動輸入", name: "", price: 0 };
-  const isCustomInput = restaurant.includes("日出鎮東") || restaurant.includes("豆坊");
+  const isCustomInput = restaurant.includes("月宮寶盒烤肉飯") || restaurant.includes("豆坊");
   
   if (isCustomInput) {
     const customName = el("customItem").value.trim();
@@ -462,7 +483,7 @@ el("addLunch").onclick = async () => {
     const m1 = el("potMain1").value;
     const m2 = el("potMain2").value;
     if (!m1 || !m2) {
-      alert("請務必選擇兩種主食！");
+      alert("請務必選擇兩種口味！");
       el("addLunch").disabled = false;
       return;
     }
@@ -474,7 +495,6 @@ el("addLunch").onclick = async () => {
   const isEdit = EDIT_ORDER_ID !== null;
 
   try {
-    // 💡 解決重複新增的關鍵：若是修改模式，先悄悄呼叫 "delete" 把原本舊的那筆刪掉
     if (isEdit) {
       await fetch(GOOGLE_WEBAPP_URL, { 
         method: "POST", 
@@ -486,7 +506,6 @@ el("addLunch").onclick = async () => {
       });
     }
 
-    // 接著統一發送 "add" 新增請求將新內容上傳
     await fetch(GOOGLE_WEBAPP_URL, { 
       method: "POST", 
       body: new URLSearchParams({
@@ -626,7 +645,7 @@ async function deleteOrder(id) {
   renderOrders();
 }
 
-el("restaurant").onchange = () => { lastShownRestaurant = ""; populateMenu(el("restaurant").value); };
+el("restaurant").onchange = () => triggerRestaurantChange(el("restaurant").value);
 el("menuItem").onchange = handleDynamicUI;
 
 el("toLunch").onclick = () => { 
