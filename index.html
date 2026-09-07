@@ -370,7 +370,7 @@ function handleDynamicUI() {
   const itemObj = JSON.parse(itemVal);
   
   const configKey = Object.keys(potMainConfigs).find(k => restaurant.includes(k));
-  let configData = potMainConfigs[configKey];
+  let configData = configKey ? potMainConfigs[configKey] : null;
 
   if (!configData) return;
 
@@ -383,7 +383,7 @@ function handleDynamicUI() {
       if (cfg.categoryKey && cleanCat.includes(cfg.categoryKey)) return true;
       return false;
     });
-  } else if (configData.options && Array.isArray(configData.options)) {
+  } else if (configData.options && Array.isArray(configData.options) && typeof configData.options[0] === 'object') {
     targetConfig = configData.options.find(cfg => {
       if (cfg.itemKey && itemObj.name.includes(cfg.itemKey)) return true;
       if (cfg.categoryKey && cleanCat.includes(cfg.categoryKey)) return true;
@@ -593,7 +593,7 @@ async function startEditOrder(id) {
   
   populateMenu(order.restaurant);
 
-  const isCustomInput = order.restaurant.includes("萬客臨彩色麵疙瘩") || order.restaurant.includes("豆坊");
+  const isCustomInput = order.restaurant.includes("月宮寶盒烤肉飯") || order.restaurant.includes("豆坊");
   if (isCustomInput) {
     el("customItem").value = order.item;
     el("customPrice").value = order.price;
